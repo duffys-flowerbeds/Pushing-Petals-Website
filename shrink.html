@@ -20,6 +20,10 @@ main{max-width:640px;margin:auto;padding:22px 16px 60px}
 .btn[disabled]{opacity:.4;pointer-events:none}
 .btn.alt{background:var(--gold);color:var(--bark)}
 input[type=file]{display:none}
+#job{display:block;width:100%;padding:14px;font:1.1rem "Alegreya",serif;border:3px solid var(--bark);background:#fff8e1;color:var(--bark);margin-bottom:10px}
+.roles{display:flex;gap:10px;margin-bottom:14px}
+.roles label{flex:1;text-align:center;border:3px solid var(--bark);padding:10px 4px;font-weight:700;background:#f7ebc6}
+.roles input{margin-right:4px}
 #status{font-weight:700;margin:10px 0}
 .row{display:flex;gap:12px;align-items:center;border-bottom:2px dashed var(--amber);padding:8px 0}
 .row img{width:56px;height:56px;object-fit:cover;border:3px solid var(--bark)}
@@ -31,7 +35,13 @@ input[type=file]{display:none}
 <body>
 <header><h1>Photo Shrinker</h1></header>
 <main>
-  <div class="step"><b>Step 1.</b> Tap the button and pick your photos. You can pick many at once.</div>
+  <div class="step"><b>Step 1.</b> Type the job name. Choose <b>Before</b> or <b>After</b>. Then pick your photos.</div>
+  <input id="job" type="text" placeholder="Job name, like Cache Rd front beds" autocomplete="off">
+  <div class="roles">
+    <label><input type="radio" name="role" value="before" checked> Before</label>
+    <label><input type="radio" name="role" value="after"> After</label>
+    <label><input type="radio" name="role" value="photo"> Other</label>
+  </div>
   <label class="btn" for="pick">Pick photos</label>
   <input id="pick" type="file" accept="image/*" multiple>
 
@@ -42,7 +52,7 @@ input[type=file]{display:none}
   <div class="step" id="s2" hidden><b>Step 2.</b> Tap <b>Save small photos</b>. On a phone, choose <b>Save to Files</b> or <b>Save Image</b>.</div>
   <button class="btn alt" id="save" hidden>Save small photos</button>
 
-  <div class="step" id="s3" hidden style="margin-top:16px"><b>Step 3.</b> Go to your GitHub repo, open the <b>photos</b> folder, tap <b>Add file</b>, then <b>Upload files</b>, and pick the small photos you just saved. Tap <b>Commit changes</b>.</div>
+  <div class="step" id="s3" hidden style="margin-top:16px"><b>Step 3.</b> Go to your GitHub repo, open the <b>photos</b> folder, tap <b>Add file</b>, then <b>Upload files</b>, and pick the small photos you just saved. Put them all in the same <b>photos</b> folder. The job name in each file name sorts them for you. Tap <b>Commit changes</b>.</div>
 </main>
 
 <script>
@@ -68,6 +78,10 @@ async function shrink(file){
 
 pick.onchange = async function(){
   var files = Array.from(pick.files);
+  var jobName = document.getElementById("job").value.trim();
+  if (!jobName){ statusEl.textContent = "Type the job name first, then pick your photos again."; pick.value = ""; return; }
+  var slug = jobName.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "Job";
+  var role = document.querySelector('input[name="role"]:checked').value;
   out = []; list.innerHTML = ""; totalEl.hidden = true;
   ["save","s2","s3"].forEach(function(id){ document.getElementById(id).hidden = true; });
   var before = 0, after = 0, base = stamp();
@@ -75,7 +89,7 @@ pick.onchange = async function(){
     statusEl.textContent = "Shrinking photo " + (i+1) + " of " + files.length + "…";
     try{
       var blob = await shrink(files[i]);
-      var name = "bed-" + base + "-" + String(i+1).padStart(3,"0") + ".jpg";
+      var name = slug + "--" + role + "-" + base + "-" + String(i+1).padStart(3,"0") + ".jpg";
       var f = new File([blob], name, { type: "image/jpeg" });
       out.push(f); before += files[i].size; after += f.size;
       var url = URL.createObjectURL(f);

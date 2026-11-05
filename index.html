@@ -53,11 +53,24 @@ section{max-width:1100px;margin:auto;padding:48px 16px}
 section h2{font-size:clamp(2.2rem,6vw,3.2rem);margin:0 0 6px;color:var(--olive)}
 .lead{margin:0 0 24px}
 
-#grid{columns:3 260px;column-gap:16px}
-#grid button{display:block;width:100%;margin:0 0 16px;padding:0;border:6px solid var(--bark);background:var(--bark);cursor:zoom-in;break-inside:avoid;box-shadow:0 5px 12px rgba(58,40,19,.3)}
-#grid img{display:block;width:100%;height:auto}
-#grid button:hover{border-color:var(--amber)}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.job{display:block;width:100%;padding:0;border:6px solid var(--bark);background:var(--bark);cursor:pointer;text-align:left;color:var(--parchment);font:inherit;box-shadow:0 5px 12px rgba(58,40,19,.3)}
+.job img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+.job .cap{padding:8px 10px;font:italic 1.35rem/1.2 "IM Fell English",Georgia,serif}
+.job .cap small{display:block;font:400 .95rem "Alegreya",serif;color:var(--gold);margin-top:2px}
+.job:hover{border-color:var(--amber)}
 #msg{font-size:1.1rem}
+#jobd{width:min(96vw,900px);max-height:92vh;overflow:auto;background:var(--parchment);color:var(--bark);padding:0 16px 16px}
+.jhead{position:sticky;top:0;background:var(--parchment);display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:3px solid var(--bark);margin-bottom:14px;z-index:2}
+.jhead h3{margin:0;font:italic 1.9rem/1.1 "IM Fell English",Georgia,serif;color:var(--olive)}
+#jclose{width:44px;height:44px;flex:none;border-radius:50%;border:3px solid var(--bark);background:var(--coral);color:var(--bark);font-size:1.5rem;cursor:pointer}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.pair figure,.more figure{margin:0;border:5px solid var(--bark);background:var(--bark)}
+.pair img,.more img{display:block;width:100%;height:auto;cursor:zoom-in}
+figcaption{color:var(--parchment);text-align:center;font-weight:700;padding:4px;text-transform:uppercase;letter-spacing:.1em;font-size:.95rem}
+.more{columns:2 200px;column-gap:10px}
+.more figure{margin-bottom:10px;break-inside:avoid}
+.empty{border:3px dashed var(--amber);display:grid;place-items:center;min-height:120px;color:var(--amber)}
 
 .contact{background:var(--olive);color:var(--parchment);max-width:none;border-top:6px solid var(--bark);text-align:center}
 .contact h2{color:var(--gold)}
@@ -107,8 +120,8 @@ dialog img{display:block;max-width:92vw;max-height:88vh;margin:auto}
 </ul></div>
 
 <section id="gallery">
-  <h2>Our flower beds</h2>
-  <p class="lead">Tap any photo to see it bigger.</p>
+  <h2>Our jobs</h2>
+  <p class="lead">Tap a job to see the before and after.</p>
   <p id="msg">Loading photos…</p>
   <div id="grid"></div>
 </section>
@@ -125,6 +138,11 @@ dialog img{display:block;max-width:92vw;max-height:88vh;margin:auto}
 
 <footer>Pushing Petals – Duffy’s Flower Bed Service · Lawton, Oklahoma</footer>
 
+<dialog id="jobd">
+  <div class="jhead"><h3 id="jtitle"></h3><button id="jclose" aria-label="Close">×</button></div>
+  <div id="jbody"></div>
+</dialog>
+
 <dialog id="lb">
   <button id="close" aria-label="Close">×</button>
   <button class="lb" id="prev" aria-label="Previous photo">‹</button>
@@ -134,40 +152,88 @@ dialog img{display:block;max-width:92vw;max-height:88vh;margin:auto}
 
 <script src="photos.js"></script>
 <script>
-// ---- Gallery: finds every picture in the "photos" folder automatically ----
+// ---- Gallery: groups photos into jobs, with before and after ----
 var REPO = "duffys-flowerbeds/Pushing-Petals-Website";
 var FOLDER = "photos";
 var IMG = /\.(jpe?g|png|gif|webp|avif)$/i;
-var list = [], at = 0;
+var list = [], at = 0, jobs = {};
 var grid = document.getElementById("grid"), msg = document.getElementById("msg");
 var lb = document.getElementById("lb"), big = document.getElementById("big");
+var jobd = document.getElementById("jobd"), jbody = document.getElementById("jbody");
 
-function show(files){
-  list = files;
-  if(!files.length){ msg.textContent = "New photos are coming soon."; return; }
+function src(path){ return path.split("/").map(encodeURIComponent).join("/"); }
+function pretty(n){ return n.replace(/[-_]+/g, " ").trim(); }
+function mk(tag, cls){ var e = document.createElement(tag); if(cls) e.className = cls; return e; }
+
+// Work out which job and before/after each photo belongs to
+function add(path){
+  var parts = path.split("/"), file = parts[parts.length - 1], job, rest;
+  if(parts.length >= 3){ job = parts[1]; rest = file; }
+  else if(file.indexOf("--") > 0){ job = file.split("--")[0]; rest = file.slice(file.indexOf("--") + 2); }
+  else { job = "More photos"; rest = file; }
+  var j = jobs[job] || (jobs[job] = { before: [], after: [], more: [], date: 0 });
+  var low = rest.toLowerCase();
+  (low.indexOf("before") > -1 ? j.before : low.indexOf("after") > -1 ? j.after : j.more).push(path);
+  var d = file.match(/(20\d{6})/); if(d) j.date = Math.max(j.date, +d[1]);
+}
+
+function show(paths){
+  jobs = {};
+  paths.sort().forEach(add);
+  var names = Object.keys(jobs).sort(function(a, b){ return jobs[b].date - jobs[a].date || a.localeCompare(b); });
+  if(!names.length){ msg.textContent = "New jobs are coming soon."; return; }
   msg.hidden = true;
-  files.forEach(function(src, i){
-    var b = document.createElement("button");
-    b.setAttribute("aria-label", "Open photo " + (i + 1));
-    var im = new Image();
-    im.src = src; im.alt = "Flower bed by Pushing Petals"; im.loading = "lazy"; im.decoding = "async";
-    b.appendChild(im);
-    b.onclick = function(){ open(i); };
+  names.forEach(function(name){
+    var j = jobs[name], total = j.before.length + j.after.length + j.more.length;
+    var cover = j.after[0] || j.before[0] || j.more[0];
+    var b = mk("button", "job");
+    b.setAttribute("aria-label", "Open " + pretty(name));
+    var im = new Image(); im.src = src(cover); im.alt = pretty(name); im.loading = "lazy"; im.decoding = "async";
+    var cap = mk("div", "cap"); cap.textContent = pretty(name);
+    var sm = mk("small"); sm.textContent = total + (total === 1 ? " photo" : " photos"); cap.appendChild(sm);
+    b.appendChild(im); b.appendChild(cap);
+    b.onclick = function(){ openJob(name); };
     grid.appendChild(b);
   });
 }
 
-function fallback(){
-  show((window.PHOTO_LIST || []).slice());
+function fig(path, label, idx){
+  var f = mk("figure");
+  var im = new Image(); im.src = src(path); im.alt = label; im.loading = "lazy"; im.decoding = "async";
+  im.onclick = function(){ open(idx); };
+  f.appendChild(im);
+  if(label){ var c = mk("figcaption"); c.textContent = label; f.appendChild(c); }
+  return f;
 }
 
-fetch("https://api.github.com/repos/" + REPO + "/contents/" + FOLDER)
+function openJob(name){
+  var j = jobs[name]; list = []; jbody.innerHTML = "";
+  document.getElementById("jtitle").textContent = pretty(name);
+  var n = Math.max(j.before.length, j.after.length);
+  for(var i = 0; i < n; i++){
+    var row = mk("div", "pair");
+    [["Before", j.before[i]], ["After", j.after[i]]].forEach(function(p){
+      if(p[1]){ list.push(src(p[1])); row.appendChild(fig(p[1], p[0], list.length - 1)); }
+      else { var e = mk("div", "empty"); row.appendChild(e); }
+    });
+    jbody.appendChild(row);
+  }
+  if(j.more.length){
+    var more = mk("div", "more");
+    j.more.forEach(function(p){ list.push(src(p)); more.appendChild(fig(p, "", list.length - 1)); });
+    jbody.appendChild(more);
+  }
+  jobd.showModal(); jobd.scrollTop = 0;
+}
+
+function fallback(){ show((window.PHOTO_LIST || []).slice()); }
+
+fetch("https://api.github.com/repos/" + REPO + "/git/trees/main?recursive=1")
   .then(function(r){ if(!r.ok) throw 0; return r.json(); })
-  .then(function(items){
-    var names = items.filter(function(f){ return f.type === "file" && IMG.test(f.name); })
-      .map(function(f){ return FOLDER + "/" + encodeURIComponent(f.name); })
-      .sort().reverse();           // newest-looking names first
-    if(names.length) show(names); else fallback();
+  .then(function(t){
+    var paths = t.tree.filter(function(f){ return f.type === "blob" && f.path.indexOf(FOLDER + "/") === 0 && IMG.test(f.path); })
+      .map(function(f){ return f.path; });
+    if(paths.length) show(paths); else fallback();
   })
   .catch(fallback);
 
@@ -176,7 +242,9 @@ function open(i){ at = (i + list.length) % list.length; big.src = list[at]; if(!
 document.getElementById("prev").onclick = function(){ open(at - 1); };
 document.getElementById("next").onclick = function(){ open(at + 1); };
 document.getElementById("close").onclick = function(){ lb.close(); };
+document.getElementById("jclose").onclick = function(){ jobd.close(); };
 lb.addEventListener("click", function(e){ if(e.target === lb) lb.close(); });
+jobd.addEventListener("click", function(e){ if(e.target === jobd) jobd.close(); });
 document.addEventListener("keydown", function(e){
   if(!lb.open) return;
   if(e.key === "ArrowLeft") open(at - 1);
