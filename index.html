@@ -70,6 +70,8 @@ section h2{font-size:clamp(2.2rem,6vw,3.2rem);margin:0 0 6px;color:var(--olive)}
 figcaption{color:var(--parchment);text-align:center;font-weight:700;padding:4px;text-transform:uppercase;letter-spacing:.1em;font-size:.95rem}
 .more{columns:2 200px;column-gap:10px}
 .more figure{margin-bottom:10px;break-inside:avoid}
+.sechead{margin:18px 0 8px;font:italic 1.6rem/1.1 "IM Fell English",Georgia,serif;color:var(--amber);border-bottom:2px solid var(--amber)}
+.sechead:first-child{margin-top:0}
 .empty{border:3px dashed var(--amber);display:grid;place-items:center;min-height:120px;color:var(--amber)}
 
 .contact{background:var(--olive);color:var(--parchment);max-width:none;border-top:6px solid var(--bark);text-align:center}
@@ -110,7 +112,7 @@ dialog img{display:block;max-width:92vw;max-height:88vh;margin:auto}
     <p class="sub">Duffy’s Flower Bed Service · Lawton, Oklahoma</p>
     <p class="tag">We plant. We mulch. We bloom.</p>
     <p>Flower beds designed, planted, and kept up. The kind of beds people accidentally stare at.</p>
-    <div class="btns"><a class="btn" href="#gallery">See our beds</a><a class="btn alt" href="tel:5805121149">Call 580-512-1149</a></div>
+    <div class="btns"><a class="btn" href="#gallery">See my jobs</a><a class="btn alt" href="tel:5805121149">Call 580-512-1149</a></div>
   </div>
 </div>
 
@@ -120,8 +122,8 @@ dialog img{display:block;max-width:92vw;max-height:88vh;margin:auto}
 </ul></div>
 
 <section id="gallery">
-  <h2>Our jobs</h2>
-  <p class="lead">Tap a job to see the before and after.</p>
+  <h2>My jobs</h2>
+  <p class="lead">Tap a job to see the before and after photos.</p>
   <p id="msg">Loading photos…</p>
   <div id="grid"></div>
 </section>
@@ -209,20 +211,15 @@ function fig(path, label, idx){
 function openJob(name){
   var j = jobs[name]; list = []; jbody.innerHTML = "";
   document.getElementById("jtitle").textContent = pretty(name);
-  var n = Math.max(j.before.length, j.after.length);
-  for(var i = 0; i < n; i++){
-    var row = mk("div", "pair");
-    [["Before", j.before[i]], ["After", j.after[i]]].forEach(function(p){
-      if(p[1]){ list.push(src(p[1])); row.appendChild(fig(p[1], p[0], list.length - 1)); }
-      else { var e = mk("div", "empty"); row.appendChild(e); }
-    });
-    jbody.appendChild(row);
-  }
-  if(j.more.length){
-    var more = mk("div", "more");
-    j.more.forEach(function(p){ list.push(src(p)); more.appendChild(fig(p, "", list.length - 1)); });
-    jbody.appendChild(more);
-  }
+  var groups = [["Before", j.before], ["After", j.after], ["More photos", j.more]];
+  var used = (j.before.length ? 1 : 0) + (j.after.length ? 1 : 0) + (j.more.length ? 1 : 0);
+  groups.forEach(function(g){
+    if(!g[1].length) return;
+    if(used > 1){ var h = mk("h4", "sechead"); h.textContent = g[0]; jbody.appendChild(h); }
+    var box = mk("div", "more");
+    g[1].forEach(function(p){ list.push(src(p)); box.appendChild(fig(p, "", list.length - 1)); });
+    jbody.appendChild(box);
+  });
   jobd.showModal(); jobd.scrollTop = 0;
 }
 
